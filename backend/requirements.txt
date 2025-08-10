@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+langchain
+langchain-google-genai
+pypdf
+python-docx
+pillow
+streamlit
+python-dotenv
+chromadb
+reportlab
+langchain_experimental
+qtpy

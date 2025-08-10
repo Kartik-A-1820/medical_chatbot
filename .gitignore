@@ -1,0 +1,11 @@
+# Ignore all PDF files
+*.pdf
+
+# Ignore .env file
+.env
+
+# Ignore virtual environment directories
+/backend/venv/
+venv/
+*.venv
+.venv
