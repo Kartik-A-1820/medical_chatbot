@@ -9,3 +9,6 @@
 venv/
 *.venv
 .venv
+
+# Ignore pycache directories
+__pycache__/
