@@ -53,12 +53,18 @@ The backend serves the chat logic and PDF generation.
 
 This is the primary, feature-rich frontend.
 
-1.  **No installation needed.**
-2.  Simply open the `index.html` file in your browser.
+1.  **Navigate to the `html_css_js_frontend` directory:**
+    ```bash
+    cd html_css_js_frontend
     ```
-    html_css_js_frontend/index.html
+2.  **Run a simple web server:**
+    ```bash
+    python -m http.server 5500
     ```
-3.  The application will connect to the backend automatically.
+3.  **Open your browser** and go to `http://localhost:5500`.
+
+*Note: You can also open the `index.html` file directly in your browser, but using a server is recommended.*
+
 
 ### 3. Streamlit Frontend
 
