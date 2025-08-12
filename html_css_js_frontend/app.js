@@ -21,13 +21,12 @@ function fetchJSON(url, init={}, timeout=TIMEOUT_MS){
   return fetch(url,{...init, signal:controller.signal}).finally(()=>clearTimeout(t));
 }
 
-// ===== Theme toggle =====
-const root=document.documentElement, themeToggle=$("#themeToggle"), themeIcon=$("#themeIcon");
+// ===== Theme =====
+const root=document.documentElement;
 function prefersDark(){ return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches; }
 function effective(){ return root.getAttribute("data-theme") || (prefersDark() ? "dark" : "light"); }
-function applyTheme(t){ if(t==="dark") root.setAttribute("data-theme","dark"); else if(t==="light") root.setAttribute("data-theme","light"); else root.removeAttribute("data-theme"); themeIcon.textContent = effective()==="dark" ? "🌞" : "🌙"; }
+function applyTheme(t){ if(t==="dark") root.setAttribute("data-theme","dark"); else if(t==="light") root.setAttribute("data-theme","light"); else root.removeAttribute("data-theme"); }
 applyTheme(localStorage.getItem("theme") || "");
-themeToggle?.addEventListener("click", ()=>{ const next=effective()==="dark"?"light":"dark"; applyTheme(next); localStorage.setItem("theme",next); });
 
 // ===== State =====
 const chatList=$("#chatList"), scroller=$("#chatScroller"), jumpBottom=$("#jumpBottom");
