@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Medical Chatbot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="api-base-url" content="http://localhost:8000" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="container header__inner">
+      <div class="header__brand">
+        <div class="logo" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v1h1a4 4 0 1 1 0 8h-1v1a5 5 0 1 1-10 0v-1H6a4 4 0 0 1 0-8h1V7a5 5 0 0 1 5-5Z"/></svg>
+        </div>
+        <div>
+          <h1 class="brand">Medical Chatbot</h1>
+          <p class="subtle">RAG-powered. For emergencies, consult a medical professional.</p>
+        </div>
+      </div>
+      <div class="header__actions">
+        <button id="btnTopPdf" class="btn btn--primary">Generate PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <div class="chat-wrap surface-elev">
+      <div id="chatScroller" class="chat">
+        <ul id="chatList" class="chat__list"></ul>
+      </div>
+      <button id="jumpBottom" class="jump-bottom hidden" title="Scroll to latest">▼</button>
+    </div>
+
+    <div class="composer">
+      <textarea id="input" rows="1" class="input"
+        placeholder="Describe your symptoms or ask about your report… (Shift+Enter for newline)"></textarea>
+      <button id="send" class="btn btn--primary">Send</button>
+    </div>
+  </main>
+
+  <!-- Prescription Modal -->
+  <div id="rxOverlay" class="overlay hidden"></div>
+  <div id="rxModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="rxTitle">
+    <div class="modal__content surface-elev">
+      <div class="modal__header">
+        <h2 id="rxTitle">Generate Prescription PDF</h2>
+        <button id="rxClose" class="icon-btn" aria-label="Close modal">✕</button>
+      </div>
+      <p class="subtle">Fields are optional. If age isn’t provided, the PDF will include adult & child guidance by default.</p>
+
+      <div class="grid">
+        <label class="field"><span>Patient Name</span><input id="rxName" type="text" /></label>
+        <label class="field"><span>Age</span><input id="rxAge" type="number" min="0" step="1" placeholder="e.g., 32" /></label>
+        <label class="field"><span>Gender</span>
+          <select id="rxGender"><option value="">Not specified</option><option>Male</option><option>Female</option><option>Other</option></select>
+        </label>
+        <label class="field"><span>Doctor Name</span><input id="rxDoctor" type="text" value="Dr. On-call" /></label>
+        <label class="field"><span>Clinic Name</span><input id="rxClinic" type="text" value="Virtual Health" /></label>
+      </div>
+
+      <div class="modal__actions">
+        <button id="rxGenerate" class="btn btn--primary">Generate PDF</button>
+        <a id="rxDownload" class="btn hidden" download="prescription.pdf">Download prescription.pdf</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastHost" class="toast-host"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

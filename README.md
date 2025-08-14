@@ -1,47 +1,94 @@
-# medical_chatbot
+# Medical Chatbot
 
-This project is a medical chatbot with a RAG-powered assistant. It can answer medical questions based on a knowledge base of PDF documents. It also includes a prescription generator.
+This project is a RAG-powered medical assistant that can answer questions from a knowledge base and generate prescriptions in PDF format.
 
-## Running the Application
+It includes a FastAPI backend and two separate frontend applications:
+1.  **HTML, CSS, JS Frontend**: A modern, responsive chat interface.
+2.  **Streamlit Frontend**: A simple, functional chat interface.
 
-The application consists of a backend server and a frontend client.
+---
 
-### Backend
+## Project Structure
 
-The backend is a FastAPI application. To run it, follow these steps:
+```
+/
+├── backend/                # FastAPI backend
+├── html_css_js_frontend/   # Vanilla JS frontend
+├── streamlit_frontend/     # Streamlit frontend
+└── knowledge/              # Folder for knowledge base PDFs
+```
 
-1.  **Navigate to the `backend` directory:**
+---
+
+## How to Run
+
+### 1. Backend (FastAPI)
+
+The backend serves the chat logic and PDF generation.
+
+1.  **Navigate to the backend directory:**
     ```bash
     cd backend
     ```
 
-2.  **Install the required dependencies:**
+2.  **Create a virtual environment and activate it:**
+    ```bash
+    python -m venv venv
+    .\venv\Scripts\activate  # Windows
+    # source venv/bin/activate # macOS/Linux
+    ```
+
+3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Run the FastAPI server:**
+4.  **Run the server:**
     ```bash
     uvicorn main:app --reload
     ```
-    The server will be running at `http://localhost:8000`.
+    The backend will be running at `http://localhost:8000`.
 
-### Frontend
+### 2. HTML, CSS, JS Frontend (Recommended)
 
-The frontend is a Streamlit application. To run it, follow these steps:
+This is the primary, feature-rich frontend.
 
-1.  **Navigate to the `frontend` directory:**
+1.  **Navigate to the `html_css_js_frontend` directory:**
     ```bash
-    cd frontend
+    cd html_css_js_frontend
+    ```
+2.  **Run a simple web server:**
+    ```bash
+    python -m http.server 5500
+    ```
+3.  **Open your browser** and go to `http://localhost:5500`.
+
+*Note: You can also open the `index.html` file directly in your browser, but using a server is recommended.*
+
+
+### 3. Streamlit Frontend
+
+This is an alternative, simpler frontend.
+
+1.  **Navigate to the streamlit_frontend directory:**
+    ```bash
+    cd streamlit_frontend
     ```
 
-2.  **Install the required dependencies:**
+2.  **Create a virtual environment and activate it:**
+    ```bash
+    python -m venv venv
+    .\venv\Scripts\activate  # Windows
+    # source venv/bin/activate # macOS/Linux
+    ```
+
+3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Run the Streamlit app:**
+4.  **Run the app:**
     ```bash
     streamlit run app.py
     ```
-    The application will open in your browser at `http://localhost:8501`.
+    The frontend will be accessible at `http://localhost:8501`.
