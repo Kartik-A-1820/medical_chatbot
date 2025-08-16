@@ -1,6 +1,10 @@
-FROM python:3.9-slim-buster 
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sqlite3 libsqlite3-0 \
+ && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements.txt
 
