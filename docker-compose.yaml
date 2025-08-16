@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: api
+    ports:
+      - "8000:8000"   
+    environment:
+      - PYTHONUNBUFFERED=1 # to ensure logs are flushed immediately
+    restart: unless-stopped 
+
+  web:
+    build:
+      context: ./html_css_js_frontend
+      dockerfile: Dockerfile
+    container_name: web
+    ports:
+      - "8050:8050"     # your python -m http.server example
+    environment:
+      - BACKEND_URL=http://api:8000   # front-end can reach the API via service name
+    depends_on:
+      - api
+    restart: unless-stopped
