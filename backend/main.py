@@ -32,7 +32,7 @@ if not os.environ["GOOGLE_API_KEY"]:
     raise RuntimeError("GEMINI_API_KEY not found in environment.")
 
 # LLMs
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.1)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.1)
 embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
 
 # ======================== FASTAPI ==========================
