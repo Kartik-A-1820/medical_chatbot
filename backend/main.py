@@ -1,6 +1,5 @@
 import os
 import io
-import json
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -10,16 +9,17 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ValidationError
 
-from langchain.prompts import PromptTemplate
+from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_community.vectorstores.chroma import Chroma
-from langchain_experimental.text_splitter import SemanticChunker
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferWindowMemory
-from langchain.output_parsers import PydanticOutputParser
-from langchain_core.output_parsers import StrOutputParser
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains.history_aware_retriever import create_history_aware_retriever
+from langchain_core.chat_history import BaseChatMessageHistory, InMemoryChatMessageHistory
+from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
+from langchain_core.runnables import RunnableWithMessageHistory
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -106,35 +106,58 @@ def build_or_load_vectorstore() -> Chroma:
 vector_store = build_or_load_vectorstore()
 
 # ======================== SAFETY PROMPT ====================
-qa_prompt = PromptTemplate(
-    input_variables=["context", "chat_history", "question"],
-    template=(
-        "You are a cautious medical assistant. Use ONLY the provided context to answer.\n\n"
-        "Rules:\n"
-        "- Be clear and concise.\n"
-        "- You may suggest POSSIBLE causes but avoid definitive diagnoses.\n"
-        "- Give step-by-step self-care/remedies when safe.\n"
-        "- Call out RED FLAGS that require urgent care.\n"
-        "- Prefer generic OTC names when relevant.\n"
-        "- Keep tone reassuring but firm about escalation when needed.\n\n"
-        "Context:\n{context}\n\n"
-        "Chat History:\n{chat_history}\n\n"
-        "User Question:\n{question}\n\n"
-        "Answer (short paragraphs; bullets when useful):"
-    ),
-)
-
 retriever = vector_store.as_retriever(search_kwargs={"k": 5})
-memory = ConversationBufferWindowMemory(
-    k=100, memory_key="chat_history", return_messages=True, output_key="answer"
+
+chat_history_store: Dict[str, BaseChatMessageHistory] = {}
+
+
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in chat_history_store:
+        chat_history_store[session_id] = InMemoryChatMessageHistory()
+    return chat_history_store[session_id]
+
+
+contextualize_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "Given a chat history and the latest user question, rewrite the question "
+            "so it is standalone. If it is already standalone, return it unchanged.",
+        ),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
 )
 
-qa_chain = ConversationalRetrievalChain.from_llm(
-    llm=llm,
-    retriever=retriever,
-    memory=memory,
-    combine_docs_chain_kwargs={"prompt": qa_prompt},
-    return_source_documents=True,
+qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a cautious medical assistant. Use ONLY the provided context to answer.\n\n"
+            "Rules:\n"
+            "- Be clear and concise.\n"
+            "- You may suggest POSSIBLE causes but avoid definitive diagnoses.\n"
+            "- Give step-by-step self-care/remedies when safe.\n"
+            "- Call out RED FLAGS that require urgent care.\n"
+            "- Prefer generic OTC names when relevant.\n"
+            "- Keep tone reassuring but firm about escalation when needed.\n\n"
+            "Context:\n{context}\n",
+        ),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
+
+question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_prompt)
+rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+
+qa_chain = RunnableWithMessageHistory(
+    rag_chain,
+    get_session_history,
+    input_messages_key="input",
+    history_messages_key="chat_history",
+    output_messages_key="answer",
 )
 
 # ======================== TRIAGE ===========================
@@ -164,6 +187,7 @@ def detect_emergency(text: str) -> Optional[str]:
 # ======================== API SCHEMAS ======================
 class ChatRequest(BaseModel):
     query: str
+    session_id: Optional[str] = "default"
 
 class ChatResponse(BaseModel):
     answer: str
@@ -311,9 +335,12 @@ def create_prescription_pdf(payload: Dict[str, Any]) -> io.BytesIO:
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        result = qa_chain({"question": request.query})
-        references = [doc.page_content for doc in result.get("source_documents", [])]
-        answer = (result["answer"] or "").strip()
+        result = await qa_chain.ainvoke(
+            {"input": request.query},
+            config={"configurable": {"session_id": request.session_id or "default"}},
+        )
+        references = [doc.page_content for doc in result.get("context", [])]
+        answer = (result.get("answer") or "").strip()
 
         # Rules-based triage on both user text and answer
         triage = detect_emergency(request.query) or detect_emergency(answer)

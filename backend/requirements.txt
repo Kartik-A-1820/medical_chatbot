@@ -1,7 +1,9 @@
 fastapi
 uvicorn
-langchain
-langchain-google-genai
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-chroma>=0.1.0
+langchain-google-genai>=1.0.0
 pypdf
 python-dotenv
 chromadb
