@@ -106,7 +106,10 @@ def build_or_load_vectorstore() -> Chroma:
 vector_store = build_or_load_vectorstore()
 
 # ======================== SAFETY PROMPT ====================
-retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+retriever = vector_store.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 6, "fetch_k": 20, "lambda_mult": 0.3},
+)
 
 chat_history_store: Dict[str, BaseChatMessageHistory] = {}
 
@@ -183,6 +186,33 @@ def detect_emergency(text: str) -> Optional[str]:
                 "If you suspect a life-threatening emergency, call your local emergency number immediately."
             )
     return None
+
+
+# =============== Lightweight intent heuristics =============
+GREETINGS = {"hi", "hello", "hey", "hola", "namaste", "good morning", "good evening", "good afternoon"}
+SMALL_TALK = {"how are you", "what's up", "whats up", "how is it going", "how's it going", "who are you"}
+MEDICAL_KEYWORDS = {
+    "pain", "fever", "cough", "symptom", "symptoms", "medicine", "medication", "diagnosis",
+    "treatment", "disease", "infection", "rash", "headache", "cold", "flu", "injury",
+    "bleeding", "asthma", "diabetes", "hypertension", "allergy", "allergic", "vomit",
+    "vomiting", "nausea", "diarrhea", "covid", "corona", "breath", "breathing", "sore throat",
+    "migraine", "ache", "fracture", "sprain", "burn", "wound",
+}
+
+
+def is_greeting(text: str) -> bool:
+    low = (text or "").strip().lower()
+    return any(low == g or low.startswith(g + " ") for g in GREETINGS)
+
+
+def is_small_talk(text: str) -> bool:
+    low = (text or "").lower()
+    return any(p in low for p in SMALL_TALK)
+
+
+def is_medical_query(text: str) -> bool:
+    low = (text or "").lower()
+    return any(k in low for k in MEDICAL_KEYWORDS)
 
 # ======================== API SCHEMAS ======================
 class ChatRequest(BaseModel):
@@ -335,6 +365,22 @@ def create_prescription_pdf(payload: Dict[str, Any]) -> io.BytesIO:
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
+        query = (request.query or "").strip()
+
+        if is_greeting(query):
+            answer = (
+                "Hello! I'm a medical assistant focused on health questions about symptoms, "
+                "conditions, and self-care. How can I help today?"
+            )
+            return ChatResponse(answer=answer, references=[])
+
+        if is_small_talk(query) or not is_medical_query(query):
+            answer = (
+                "I'm here to discuss health concerns, symptoms, medications, and related topics. "
+                "Feel free to share any medical question, and I'll do my best to help."
+            )
+            return ChatResponse(answer=answer, references=[])
+
         result = await qa_chain.ainvoke(
             {"input": request.query},
             config={"configurable": {"session_id": request.session_id or "default"}},
