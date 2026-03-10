@@ -1,98 +1,264 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Medical Chatbot</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="api-base-url" content="http://localhost:8000" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedAssist AI - Your Medical Companion</title>
+  <meta name="api-base-url" content="http://localhost:8000">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="bg-orb bg-orb--one" aria-hidden="true"></div>
-  <div class="bg-orb bg-orb--two" aria-hidden="true"></div>
-
-  <header class="header">
-    <div class="container header__inner">
-      <div class="header__brand">
-        <div class="logo" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v1h1a4 4 0 1 1 0 8h-1v1a5 5 0 1 1-10 0v-1H6a4 4 0 0 1 0-8h1V7a5 5 0 0 1 5-5Z"/></svg>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container navbar-content">
+      <div class="navbar-brand">
+        <div class="logo">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M24 4C20.6863 4 18 6.68629 18 10V14H14C10.6863 14 8 16.6863 8 20C8 23.3137 10.6863 26 14 26H18V30C18 33.3137 20.6863 36 24 36C27.3137 36 30 33.3137 30 30V26H34C37.3137 26 40 23.3137 40 20C40 16.6863 37.3137 14 34 14H30V10C30 6.68629 27.3137 4 24 4Z" fill="url(#logo-gradient)"/>
+            <defs>
+              <linearGradient id="logo-gradient" x1="8" y1="4" x2="40" y2="36" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#06b6d4"/>
+                <stop offset="1" stop-color="#3b82f6"/>
+              </linearGradient>
+            </defs>
+          </svg>
         </div>
-        <div>
-          <h1 class="brand">Medical Chatbot</h1>
-          <p class="subtle">RAG-powered guidance • For emergencies, contact a medical professional.</p>
+        <div class="brand-text">
+          <h1>MedAssist AI</h1>
+          <p>Intelligent Medical Guidance</p>
         </div>
       </div>
-      <div class="header__actions">
-        <span class="status-pill" aria-label="System status">● AI online</span>
-        <button id="btnTopPdf" class="btn btn--primary">Generate PDF</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="container main">
-    <section class="hero surface-elev">
-      <div>
-        <p class="hero__eyebrow">Smart health assistant</p>
-        <h2>Fast, contextual, and safer medical responses.</h2>
-        <p class="hero__copy">Ask about symptoms, reports, or next-step care. Responses include caution and source context.</p>
-      </div>
-      <div class="hero__chips" role="list" aria-label="Suggested prompts">
-        <button class="chip" data-prompt="I have fever and sore throat for 2 days. What should I monitor?">Fever + sore throat</button>
-        <button class="chip" data-prompt="How do I read CBC report abnormalities?">Read CBC report</button>
-        <button class="chip" data-prompt="When should chest pain be considered an emergency?">Emergency chest pain signs</button>
-      </div>
-    </section>
-
-    <div class="chat-wrap surface-elev">
-      <div id="chatScroller" class="chat">
-        <ul id="chatList" class="chat__list"></ul>
-      </div>
-      <button id="jumpBottom" class="jump-bottom hidden" title="Scroll to latest">↓ Latest</button>
-    </div>
-
-    <div class="composer-wrap surface-elev">
-      <div class="composer">
-        <textarea id="input" rows="1" class="input"
-          placeholder="Describe your symptoms or ask about your report… (Shift+Enter for newline)"></textarea>
-        <button id="send" class="btn btn--primary btn--icon" aria-label="Send message">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 11.5 20 4l-4.5 16-3.8-5.2L4 11.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-          <span>Send</span>
+      <div class="navbar-actions">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="statusText">Connected</span>
+        </div>
+        <button id="btnGeneratePDF" class="btn btn-outline">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          Generate Prescription
         </button>
       </div>
-      <p class="composer__meta subtle">Tip: Press Enter to send • Shift+Enter for newline</p>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-container">
+    <div class="container">
+      <div class="layout-grid">
+        <!-- Left Panel - Info & Features -->
+        <aside class="sidebar">
+          <div class="card welcome-card">
+            <div class="card-header">
+              <h2>Welcome to MedAssist AI</h2>
+              <span class="badge badge-primary">RAG Powered</span>
+            </div>
+            <p class="text-muted">Your intelligent medical companion powered by advanced AI and retrieval-augmented generation. Get contextual answers with citations from medical knowledge bases.</p>
+            
+            <div class="features-list">
+              <div class="feature-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <div>
+                  <strong>Smart Triage</strong>
+                  <p>Automatic emergency detection</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <div>
+                  <strong>Source Citations</strong>
+                  <p>Every answer includes references</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                </svg>
+                <div>
+                  <strong>PDF Prescriptions</strong>
+                  <p>Generate professional reports</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card stats-card">
+            <h3>Quick Stats</h3>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-value" id="providerCount">3</div>
+                <div class="stat-label">AI Providers</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="docCount">0</div>
+                <div class="stat-label">Documents</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" id="messageCount">0</div>
+                <div class="stat-label">Messages</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card safety-card">
+            <div class="safety-header">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <h3>Safety Notice</h3>
+            </div>
+            <p class="text-small">This AI assistant provides information only. Always consult qualified healthcare professionals for medical advice, diagnosis, or treatment. In emergencies, call your local emergency services immediately.</p>
+          </div>
+        </aside>
+
+        <!-- Right Panel - Chat Interface -->
+        <section class="chat-section">
+          <div class="card chat-card">
+            <div class="chat-header">
+              <div>
+                <h2>Medical Consultation</h2>
+                <p class="text-muted">Ask about symptoms, medications, or medical reports</p>
+              </div>
+              <div class="chat-controls">
+                <button id="btnClearChat" class="btn btn-ghost btn-sm" title="Clear conversation">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Suggested Prompts -->
+            <div id="suggestedPrompts" class="suggested-prompts">
+              <p class="text-small text-muted">Try asking:</p>
+              <div class="prompt-chips">
+                <button class="chip" data-prompt="I have a fever of 101°F and body aches for 2 days. What should I do?">
+                  Fever & body aches
+                </button>
+                <button class="chip" data-prompt="How do I interpret my CBC blood test results?">
+                  Understand CBC results
+                </button>
+                <button class="chip" data-prompt="What are the warning signs of a heart attack?">
+                  Heart attack symptoms
+                </button>
+                <button class="chip" data-prompt="Home remedies for mild headache">
+                  Headache remedies
+                </button>
+              </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="chatContainer" class="chat-container">
+              <div id="chatMessages" class="chat-messages"></div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="chat-input-wrapper">
+              <div class="chat-input-container">
+                <textarea 
+                  id="chatInput" 
+                  class="chat-input" 
+                  placeholder="Describe your symptoms or ask a medical question..."
+                  rows="1"
+                ></textarea>
+                <button id="btnSend" class="btn btn-primary btn-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                  Send
+                </button>
+              </div>
+              <p class="input-hint">Press <kbd>Enter</kbd> to send • <kbd>Shift + Enter</kbd> for new line</p>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   </main>
 
-  <div id="rxOverlay" class="overlay hidden"></div>
-  <div id="rxModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="rxTitle">
-    <div class="modal__content surface-elev">
-      <div class="modal__header">
-        <h2 id="rxTitle">Generate Prescription PDF</h2>
-        <button id="rxClose" class="icon-btn" aria-label="Close modal">✕</button>
+  <!-- Prescription Modal -->
+  <div id="prescriptionModal" class="modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2>Generate Prescription PDF</h2>
+          <p class="text-muted">Fill in patient details to create a professional prescription</p>
+        </div>
+        <button id="btnCloseModal" class="btn btn-ghost btn-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
-      <p class="subtle">Fields are optional. If age isn’t provided, the PDF will include adult & child guidance by default.</p>
-
-      <div class="grid">
-        <label class="field"><span>Patient Name</span><input id="rxName" type="text" /></label>
-        <label class="field"><span>Age</span><input id="rxAge" type="number" min="0" step="1" placeholder="e.g., 32" /></label>
-        <label class="field"><span>Gender</span>
-          <select id="rxGender"><option value="">Not specified</option><option>Male</option><option>Female</option><option>Other</option></select>
-        </label>
-        <label class="field"><span>Doctor Name</span><input id="rxDoctor" type="text" value="Dr. On-call" /></label>
-        <label class="field"><span>Clinic Name</span><input id="rxClinic" type="text" value="Virtual Health" /></label>
+      
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="patientName">Patient Name</label>
+            <input type="text" id="patientName" class="form-control" placeholder="Enter patient name">
+          </div>
+          <div class="form-group">
+            <label for="patientAge">Age</label>
+            <input type="number" id="patientAge" class="form-control" placeholder="Age" min="0">
+          </div>
+          <div class="form-group">
+            <label for="patientGender">Gender</label>
+            <select id="patientGender" class="form-control">
+              <option value="">Not specified</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="doctorName">Doctor Name</label>
+            <input type="text" id="doctorName" class="form-control" value="Dr. On-call">
+          </div>
+          <div class="form-group">
+            <label for="clinicName">Clinic Name</label>
+            <input type="text" id="clinicName" class="form-control" value="Virtual Health">
+          </div>
+        </div>
       </div>
 
-      <div class="modal__actions">
-        <button id="rxGenerate" class="btn btn--primary">Generate PDF</button>
-        <a id="rxDownload" class="btn hidden" download="prescription.pdf">Download prescription.pdf</a>
+      <div class="modal-footer">
+        <button id="btnCancelPDF" class="btn btn-ghost">Cancel</button>
+        <button id="btnCreatePDF" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          Generate PDF
+        </button>
       </div>
     </div>
   </div>
 
-  <div id="toastHost" class="toast-host"></div>
-  <script type="module" src="app.js"></script>
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
 </body>
 </html>
