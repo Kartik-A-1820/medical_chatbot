@@ -1,94 +1,160 @@
 # Medical Chatbot
 
-This project is a RAG-powered medical assistant that can answer questions from a knowledge base and generate prescriptions in PDF format.
+A Retrieval-Augmented Generation (RAG) medical assistant with:
+- a **FastAPI backend** for chat + prescription PDF generation,
+- a modern **HTML/CSS/JS frontend**,
+- an alternative **Streamlit frontend**,
+- and **multi-provider LLM fallback** support.
 
-It includes a FastAPI backend and two separate frontend applications:
-1.  **HTML, CSS, JS Frontend**: A modern, responsive chat interface.
-2.  **Streamlit Frontend**: A simple, functional chat interface.
+The assistant answers using your local knowledge-base PDFs, adds safety guidance, and can generate a structured prescription-style PDF from a conversation.
+
+---
+
+## Features
+
+- **RAG over local PDFs** using Chroma vector store.
+- **Provider fallback chain** for reliability:
+  1. Gemini
+  2. OpenRouter
+  3. GitHub Models
+- **Local embeddings** via `sentence-transformers/all-MiniLM-L6-v2` by default.
+- **Emergency red-flag detection** appended to responses.
+- **Prescription PDF generation** from chat context.
+- **Source references** returned with answers.
 
 ---
 
 ## Project Structure
 
+```text
+.
+├── backend/                    # FastAPI API + RAG + PDF generation
+├── html_css_js_frontend/       # Vanilla JS web UI (recommended)
+├── streamlit_frontend/         # Streamlit UI
+├── chroma_db/                  # Persisted vector store (runtime-generated)
+├── OPENROUTER_SETUP.md         # Notes for OpenRouter free-model privacy settings
+├── test_providers.py           # Provider/env validation script
+└── README.md
 ```
-/
-├── backend/                # FastAPI backend
-├── html_css_js_frontend/   # Vanilla JS frontend
-├── streamlit_frontend/     # Streamlit frontend
-└── knowledge/              # Folder for knowledge base PDFs
+
+> Note: The backend expects a `knowledge/` folder (relative to where the backend process runs) containing your source PDFs.
+
+---
+
+## Prerequisites
+
+- Python 3.10+
+- `pip`
+- At least one provider credential:
+  - `GEMINI_API_KEY` (or `GOOGLE_API_KEY`), or
+  - `OPENROUTER_API_KEY`, or
+  - `GITHUB_TOKEN`
+
+---
+
+## Backend Setup (FastAPI)
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate   # macOS/Linux
+# .\venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+```
+
+Create a `.env` file in `backend/` (or otherwise ensure env vars are available):
+
+```env
+# Optional embedding model
+LOCAL_EMBED_MODEL=sentence-transformers/all-MiniLM-L6-v2
+
+# Gemini
+GEMINI_API_KEY=your_key
+GEMINI_MODEL=gemini-2.5-flash
+
+# OpenRouter
+OPENROUTER_API_KEY=your_key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=qwen/qwen-2-7b-instruct:free
+
+# GitHub Models
+GITHUB_TOKEN=your_token
+GITHUB_OPENAI_BASE_URL=https://models.inference.ai.azure.com
+GITHUB_MODEL=gpt-4o-mini
+```
+
+Create and populate knowledge PDFs (from `backend/`):
+
+```bash
+mkdir -p knowledge
+# place your .pdf files in backend/knowledge/
+```
+
+Run backend:
+
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Health check:
+
+```bash
+curl http://localhost:8000/health
 ```
 
 ---
 
-## How to Run
+## Frontend Options
 
-### 1. Backend (FastAPI)
+### 1) HTML/CSS/JS Frontend (Recommended)
 
-The backend serves the chat logic and PDF generation.
+```bash
+cd html_css_js_frontend
+python -m http.server 5500
+```
 
-1.  **Navigate to the backend directory:**
-    ```bash
-    cd backend
-    ```
+Open: `http://localhost:5500`
 
-2.  **Create a virtual environment and activate it:**
-    ```bash
-    python -m venv venv
-    .\venv\Scripts\activate  # Windows
-    # source venv/bin/activate # macOS/Linux
-    ```
+The frontend calls backend at `http://localhost:8000` by default.
 
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+### 2) Streamlit Frontend
 
-4.  **Run the server:**
-    ```bash
-    uvicorn main:app --reload
-    ```
-    The backend will be running at `http://localhost:8000`.
+```bash
+cd streamlit_frontend
+python -m venv venv
+source venv/bin/activate   # macOS/Linux
+# .\venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-### 2. HTML, CSS, JS Frontend (Recommended)
+Open: `http://localhost:8501`
 
-This is the primary, feature-rich frontend.
+---
 
-1.  **Navigate to the `html_css_js_frontend` directory:**
-    ```bash
-    cd html_css_js_frontend
-    ```
-2.  **Run a simple web server:**
-    ```bash
-    python -m http.server 5500
-    ```
-3.  **Open your browser** and go to `http://localhost:5500`.
+## API Endpoints
 
-*Note: You can also open the `index.html` file directly in your browser, but using a server is recommended.*
+- `POST /chat` — asks a medical question and returns answer + references.
+- `POST /generate_prescription_pdf_from_chat` — generates downloadable PDF from chat context.
+- `GET /health` — service health status.
 
+---
 
-### 3. Streamlit Frontend
+## Provider Validation
 
-This is an alternative, simpler frontend.
+From repo root, you can validate configured providers:
 
-1.  **Navigate to the streamlit_frontend directory:**
-    ```bash
-    cd streamlit_frontend
-    ```
+```bash
+python test_providers.py
+```
 
-2.  **Create a virtual environment and activate it:**
-    ```bash
-    python -m venv venv
-    .\venv\Scripts\activate  # Windows
-    # source venv/bin/activate # macOS/Linux
-    ```
+For OpenRouter free models, review:
+- `OPENROUTER_SETUP.md`
 
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+---
 
-4.  **Run the app:**
-    ```bash
-    streamlit run app.py
-    ```
-    The frontend will be accessible at `http://localhost:8501`.
+## Notes
+
+- If no provider is configured successfully, backend startup will fail.
+- Chroma data and processed tracker are persisted; add new PDFs to `backend/knowledge/` and restart to ingest.
+- This project provides educational guidance, not a replacement for professional medical care.
