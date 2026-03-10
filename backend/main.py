@@ -1,7 +1,9 @@
 import os
 import io
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional, Dict, Any
+from dataclasses import dataclass
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -10,7 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ValidationError
 
 from langchain_chroma import Chroma
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
+from langchain_core.embeddings import Embeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_classic.chains import create_retrieval_chain
@@ -27,13 +32,94 @@ from reportlab.lib.units import inch
 
 # ======================== ENV / LLM ========================
 load_dotenv()
-os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY") or ""
-if not os.environ["GOOGLE_API_KEY"]:
-    raise RuntimeError("GEMINI_API_KEY not found in environment.")
 
-# LLMs
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.1)
-embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+LOCAL_EMBED_MODEL = os.getenv("LOCAL_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+try:
+    local_embeddings = HuggingFaceEmbeddings(model_name=LOCAL_EMBED_MODEL)
+    print(f"✓ Loaded local embedding model: {LOCAL_EMBED_MODEL}")
+except Exception as exc:
+    raise RuntimeError(f"Failed to load local embedding model {LOCAL_EMBED_MODEL}: {exc}")
+
+@dataclass
+class ProviderConfig:
+    name: str
+    llm: Any
+    embeddings: Embeddings
+
+def get_gemini_provider() -> Optional[ProviderConfig]:
+    """Try to initialize Gemini provider."""
+    try:
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            print("⚠️ Gemini: No API key found")
+            return None
+        os.environ["GOOGLE_API_KEY"] = api_key
+        llm = ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"), temperature=0.1)
+        embeddings = local_embeddings
+        print("✓ Gemini provider initialized")
+        return ProviderConfig(name="Gemini", llm=llm, embeddings=embeddings)
+    except Exception as e:
+        print(f"⚠️ Gemini initialization failed: {e}")
+        return None
+
+def get_openrouter_provider() -> Optional[ProviderConfig]:
+    """Try to initialize OpenRouter provider."""
+    try:
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            print("⚠️ OpenRouter: No API key found")
+            return None
+        base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        model = os.getenv("OPENROUTER_MODEL", "qwen/qwen-2-7b-instruct:free")
+        
+        llm = ChatOpenAI(
+            base_url=base_url, 
+            api_key=api_key, 
+            model=model, 
+            temperature=0.1,
+            model_kwargs={"extra_body": {"reasoning": {"enabled": False}}}
+        )
+        embeddings = local_embeddings
+        print(f"✓ OpenRouter provider initialized (model: {model})")
+        return ProviderConfig(name="OpenRouter", llm=llm, embeddings=embeddings)
+    except Exception as e:
+        print(f"⚠️ OpenRouter initialization failed: {e}")
+        return None
+
+def get_github_provider() -> Optional[ProviderConfig]:
+    """Try to initialize GitHub Models provider."""
+    try:
+        token = os.getenv("GITHUB_TOKEN")
+        if not token:
+            print("⚠️ GitHub: No token found")
+            return None
+        base_url = os.getenv("GITHUB_OPENAI_BASE_URL", "https://models.inference.ai.azure.com")
+        model = os.getenv("GITHUB_MODEL", "gpt-4o-mini")
+        
+        llm = ChatOpenAI(base_url=base_url, api_key=token, model=model, temperature=0.1)
+        embeddings = local_embeddings
+        print(f"✓ GitHub provider initialized (model: {model})")
+        return ProviderConfig(name="GitHub", llm=llm, embeddings=embeddings)
+    except Exception as e:
+        print(f"⚠️ GitHub initialization failed: {e}")
+        return None
+
+# Try providers in order: Gemini → OpenRouter → GitHub
+PROVIDERS: List[ProviderConfig] = []
+for provider_fn in [get_gemini_provider, get_openrouter_provider, get_github_provider]:
+    provider = provider_fn()
+    if provider:
+        PROVIDERS.append(provider)
+
+if not PROVIDERS:
+    raise RuntimeError("❌ No LLM providers available. Set GEMINI_API_KEY, OPENROUTER_API_KEY, or GITHUB_TOKEN.")
+
+print(f"\n🚀 Available providers: {[p.name for p in PROVIDERS]}\n")
+
+# Use first available provider as default
+active_provider = PROVIDERS[0]
+llm = active_provider.llm
+embeddings = active_provider.embeddings
 
 # ======================== FASTAPI ==========================
 app = FastAPI(title="Medical Chatbot API")
@@ -94,7 +180,6 @@ def build_or_load_vectorstore() -> Chroma:
         if new_docs:
             texts = split_docs(new_docs)
             store.add_documents(texts)
-            store.persist()
 
     with open(PROCESSED_TRACKER, "w", encoding="utf-8") as f:
         for name in sorted(processed):
@@ -148,17 +233,40 @@ qa_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_prompt)
-rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+def build_qa_chain_for_provider(provider: ProviderConfig) -> RunnableWithMessageHistory:
+    """Build QA chain for a specific provider."""
+    question_answer_chain = create_stuff_documents_chain(provider.llm, qa_prompt)
+    history_aware_retriever = create_history_aware_retriever(provider.llm, retriever, contextualize_prompt)
+    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+    return RunnableWithMessageHistory(
+        rag_chain,
+        get_session_history,
+        input_messages_key="input",
+        history_messages_key="chat_history",
+        output_messages_key="answer",
+    )
 
-qa_chain = RunnableWithMessageHistory(
-    rag_chain,
-    get_session_history,
-    input_messages_key="input",
-    history_messages_key="chat_history",
-    output_messages_key="answer",
-)
+async def chat_with_fallback(query: str, session_id: str) -> Dict[str, Any]:
+    """Try chat with each provider until one succeeds."""
+    errors = []
+    for provider in PROVIDERS:
+        try:
+            print(f"🔄 Trying {provider.name} for chat...")
+            qa_chain = build_qa_chain_for_provider(provider)
+            result = await qa_chain.ainvoke(
+                {"input": query},
+                config={"configurable": {"session_id": session_id}},
+            )
+            print(f"✅ {provider.name} succeeded")
+            return result
+        except Exception as e:
+            error_msg = str(e)
+            print(f"❌ {provider.name} failed: {error_msg[:100]}")
+            errors.append(f"{provider.name}: {error_msg[:100]}")
+            continue
+    
+    # All providers failed
+    raise RuntimeError(f"All providers failed. Errors: {' | '.join(errors)}")
 
 # ======================== TRIAGE ===========================
 RED_FLAG_PATTERNS = [
@@ -335,11 +443,22 @@ def create_prescription_pdf(payload: Dict[str, Any]) -> io.BytesIO:
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        result = await qa_chain.ainvoke(
-            {"input": request.query},
-            config={"configurable": {"session_id": request.session_id or "default"}},
-        )
-        references = [doc.page_content for doc in result.get("context", [])]
+        result = await chat_with_fallback(request.query, request.session_id or "default")
+        references: List[str] = []
+        for doc in result.get("context", []) or []:
+            metadata = getattr(doc, "metadata", {}) or {}
+            raw_source = metadata.get("source")
+            source = Path(raw_source).name if raw_source else "Knowledge base"
+            page = metadata.get("page")
+            label = source
+            if isinstance(page, int):
+                label += f" (p. {page + 1})"
+
+            snippet = (doc.page_content or "").strip().replace("\n", " ")
+            if len(snippet) > 260:
+                snippet = snippet[:257].rstrip() + "…"
+            references.append(f"{label}: {snippet if snippet else 'No preview available.'}")
+
         answer = (result.get("answer") or "").strip()
 
         # Rules-based triage on both user text and answer
@@ -349,7 +468,7 @@ async def chat(request: ChatRequest):
 
         # Safety nudge
         answer += (
-            "\n\n---\n**Note:** I’m not a substitute for a doctor. "
+            "\n\n---\n**Note:** I'm not a substitute for a doctor. "
             "If symptoms are severe, new, or worsening — or you suspect an emergency — seek in-person care."
         )
         return ChatResponse(answer=answer, references=references)
@@ -378,7 +497,33 @@ RX_PROMPT = PromptTemplate(
     ),
 )
 
-RX_CHAIN = RX_PROMPT | llm | StrOutputParser() | RX_PARSER
+def build_rx_chain_for_provider(provider: ProviderConfig):
+    """Build RX chain for a specific provider."""
+    return RX_PROMPT | provider.llm | StrOutputParser() | RX_PARSER
+
+async def generate_rx_with_fallback(user_query: str, assistant_answer: str, age: str, gender: str) -> RxSchema:
+    """Try prescription generation with each provider until one succeeds."""
+    errors = []
+    for provider in PROVIDERS:
+        try:
+            print(f"🔄 Trying {provider.name} for prescription...")
+            rx_chain = build_rx_chain_for_provider(provider)
+            result = await rx_chain.ainvoke({
+                "user_query": user_query,
+                "assistant_answer": assistant_answer,
+                "age": age,
+                "gender": gender,
+            })
+            print(f"✅ {provider.name} succeeded")
+            return result
+        except Exception as e:
+            error_msg = str(e)
+            print(f"❌ {provider.name} failed: {error_msg[:100]}")
+            errors.append(f"{provider.name}: {error_msg[:100]}")
+            continue
+    
+    # All providers failed
+    raise RuntimeError(f"All providers failed. Errors: {' | '.join(errors)}")
 
 class RxFromChatRequest(BaseModel):
     latest_user_query: str
@@ -393,12 +538,12 @@ class RxFromChatRequest(BaseModel):
 @app.post("/generate_prescription_pdf_from_chat")
 async def generate_prescription_pdf_from_chat(req: RxFromChatRequest):
     try:
-        rx: RxSchema = await RX_CHAIN.ainvoke({
-            "user_query": req.latest_user_query,
-            "assistant_answer": req.assistant_answer or "",
-            "age": str(req.patient_age) if req.patient_age is not None else "None",
-            "gender": req.patient_gender or "None",
-        })
+        rx: RxSchema = await generate_rx_with_fallback(
+            req.latest_user_query,
+            req.assistant_answer or "",
+            str(req.patient_age) if req.patient_age is not None else "None",
+            req.patient_gender or "None",
+        )
 
         payload = {
             "patient": {"name": req.patient_name or "Patient", "age": req.patient_age, "gender": req.patient_gender},
