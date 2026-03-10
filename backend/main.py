@@ -526,22 +526,45 @@ async def generate_rx_with_fallback(user_query: str, assistant_answer: str, age:
     raise RuntimeError(f"All providers failed. Errors: {' | '.join(errors)}")
 
 class RxFromChatRequest(BaseModel):
-    latest_user_query: str
-    assistant_answer: Optional[str] = None
+    session_id: str
     patient_name: Optional[str] = "Patient"
-    patient_age: Optional[int] = None
+    patient_age: Optional[str] = None
     patient_gender: Optional[str] = None
     doctor_name: Optional[str] = "Dr. On-call"
     clinic_name: Optional[str] = "Virtual Health"
-    date: Optional[str] = datetime.now().strftime("%Y-%m-%d")
+    date: Optional[str] = None
 
 @app.post("/generate_prescription_pdf_from_chat")
 async def generate_prescription_pdf_from_chat(req: RxFromChatRequest):
     try:
+        history = get_session_history(req.session_id)
+        messages = history.messages if hasattr(history, 'messages') else []
+        
+        if not messages or len(messages) < 2:
+            raise HTTPException(status_code=400, detail="No chat history found. Please have a conversation first.")
+        
+        latest_user_query = ""
+        assistant_answer = ""
+        
+        for i in range(len(messages) - 1, -1, -1):
+            msg = messages[i]
+            if hasattr(msg, 'type'):
+                if msg.type == 'ai' and not assistant_answer:
+                    assistant_answer = msg.content
+                elif msg.type == 'human' and not latest_user_query:
+                    latest_user_query = msg.content
+            if latest_user_query and assistant_answer:
+                break
+        
+        if not latest_user_query:
+            latest_user_query = "General medical consultation"
+        if not assistant_answer:
+            assistant_answer = "Medical assessment provided"
+        
         rx: RxSchema = await generate_rx_with_fallback(
-            req.latest_user_query,
-            req.assistant_answer or "",
-            str(req.patient_age) if req.patient_age is not None else "None",
+            latest_user_query,
+            assistant_answer,
+            req.patient_age or "None",
             req.patient_gender or "None",
         )
 
@@ -564,6 +587,10 @@ async def generate_prescription_pdf_from_chat(req: RxFromChatRequest):
         raise HTTPException(status_code=500, detail=f"Model returned invalid schema: {ve}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {type(e).__name__}: {e}")
+
+@app.get("/")
+async def root():
+    return JSONResponse({"status": "ok", "message": "Medical Chatbot API"})
 
 @app.get("/health")
 async def health():

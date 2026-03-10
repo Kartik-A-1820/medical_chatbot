@@ -212,6 +212,8 @@ async function sendMessage(message) {
     }
     
     const data = await response.json();
+    console.log('Chat response:', data);
+    console.log('References:', data.references);
     
     typingMessage.remove();
     
@@ -219,6 +221,7 @@ async function sendMessage(message) {
       const sources = Array.isArray(data.references) && data.references.length > 0
         ? data.references
         : null;
+      console.log('Sources to display:', sources);
       appendMessage('assistant', data.answer, sources);
       
       if (data.triage_level) {
