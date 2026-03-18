@@ -58,17 +58,23 @@ function showToast(message, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  
+
   const icons = {
     success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
     error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
     info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
   };
 
-  toast.innerHTML = `
-    <div class="toast-icon">${icons[type] || icons.info}</div>
-    <div class="toast-message">${message}</div>
-  `;
+  const iconDiv = document.createElement('div');
+  iconDiv.className = 'toast-icon';
+  iconDiv.innerHTML = icons[type] || icons.info;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'toast-message';
+  msgDiv.textContent = message;
+
+  toast.appendChild(iconDiv);
+  toast.appendChild(msgDiv);
 
   container.appendChild(toast);
 
@@ -179,8 +185,15 @@ function scrollToBottom() {
   }
 }
 
+const MAX_QUERY_LENGTH = 2000;
+
 async function sendMessage(message) {
   if (!message.trim() || isProcessing) return;
+
+  if (message.length > MAX_QUERY_LENGTH) {
+    showToast(`Message too long. Please keep it under ${MAX_QUERY_LENGTH} characters.`, 'error');
+    return;
+  }
   
   isProcessing = true;
   elements.btnSend.disabled = true;
@@ -212,16 +225,12 @@ async function sendMessage(message) {
     }
     
     const data = await response.json();
-    console.log('Chat response:', data);
-    console.log('References:', data.references);
-    
     typingMessage.remove();
-    
+
     if (data.answer) {
       const sources = Array.isArray(data.references) && data.references.length > 0
         ? data.references
         : null;
-      console.log('Sources to display:', sources);
       appendMessage('assistant', data.answer, sources);
       
       if (data.triage_level) {
@@ -386,24 +395,18 @@ elements.prescriptionModal.querySelector('.modal-overlay').addEventListener('cli
 
 // ===== Initialization =====
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('MedAssist AI initialized');
-  console.log('Session ID:', sessionId);
-  console.log('API Base:', API_BASE);
-  
   elements.chatInput.focus();
   updateStatus('Connected', true);
-  
+
   fetch(`${API_BASE}/`)
     .then(response => response.json())
     .then(data => {
-      console.log('Backend status:', data);
       if (data.status === 'ok') {
         updateStatus('Connected', true);
         showToast('Connected to MedAssist AI', 'success');
       }
     })
-    .catch(error => {
-      console.error('Backend connection error:', error);
+    .catch(() => {
       updateStatus('Backend offline', false);
       showToast('Backend connection failed', 'error');
     });

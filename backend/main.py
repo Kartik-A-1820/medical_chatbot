@@ -1,5 +1,6 @@
 import os
 import io
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -10,6 +11,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ValidationError
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -36,7 +43,7 @@ load_dotenv()
 LOCAL_EMBED_MODEL = os.getenv("LOCAL_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 try:
     local_embeddings = HuggingFaceEmbeddings(model_name=LOCAL_EMBED_MODEL)
-    print(f"✓ Loaded local embedding model: {LOCAL_EMBED_MODEL}")
+    logger.info("Loaded local embedding model: %s", LOCAL_EMBED_MODEL)
 except Exception as exc:
     raise RuntimeError(f"Failed to load local embedding model {LOCAL_EMBED_MODEL}: {exc}")
 
@@ -56,10 +63,10 @@ def get_gemini_provider() -> Optional[ProviderConfig]:
         os.environ["GOOGLE_API_KEY"] = api_key
         llm = ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"), temperature=0.1)
         embeddings = local_embeddings
-        print("✓ Gemini provider initialized")
+        logger.info("Gemini provider initialized")
         return ProviderConfig(name="Gemini", llm=llm, embeddings=embeddings)
     except Exception as e:
-        print(f"⚠️ Gemini initialization failed: {e}")
+        logger.warning("Gemini initialization failed: %s", e)
         return None
 
 def get_openrouter_provider() -> Optional[ProviderConfig]:
@@ -67,23 +74,23 @@ def get_openrouter_provider() -> Optional[ProviderConfig]:
     try:
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
-            print("⚠️ OpenRouter: No API key found")
+            logger.warning("OpenRouter: No API key found")
             return None
         base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
         model = os.getenv("OPENROUTER_MODEL", "qwen/qwen-2-7b-instruct:free")
-        
+
         llm = ChatOpenAI(
-            base_url=base_url, 
-            api_key=api_key, 
-            model=model, 
+            base_url=base_url,
+            api_key=api_key,
+            model=model,
             temperature=0.1,
             model_kwargs={"extra_body": {"reasoning": {"enabled": False}}}
         )
         embeddings = local_embeddings
-        print(f"✓ OpenRouter provider initialized (model: {model})")
+        logger.info("OpenRouter provider initialized (model: %s)", model)
         return ProviderConfig(name="OpenRouter", llm=llm, embeddings=embeddings)
     except Exception as e:
-        print(f"⚠️ OpenRouter initialization failed: {e}")
+        logger.warning("OpenRouter initialization failed: %s", e)
         return None
 
 def get_github_provider() -> Optional[ProviderConfig]:
@@ -91,17 +98,17 @@ def get_github_provider() -> Optional[ProviderConfig]:
     try:
         token = os.getenv("GITHUB_TOKEN")
         if not token:
-            print("⚠️ GitHub: No token found")
+            logger.warning("GitHub: No token found")
             return None
         base_url = os.getenv("GITHUB_OPENAI_BASE_URL", "https://models.inference.ai.azure.com")
         model = os.getenv("GITHUB_MODEL", "gpt-4o-mini")
-        
+
         llm = ChatOpenAI(base_url=base_url, api_key=token, model=model, temperature=0.1)
         embeddings = local_embeddings
-        print(f"✓ GitHub provider initialized (model: {model})")
+        logger.info("GitHub provider initialized (model: %s)", model)
         return ProviderConfig(name="GitHub", llm=llm, embeddings=embeddings)
     except Exception as e:
-        print(f"⚠️ GitHub initialization failed: {e}")
+        logger.warning("GitHub initialization failed: %s", e)
         return None
 
 # Try providers in order: Gemini → OpenRouter → GitHub
@@ -112,9 +119,9 @@ for provider_fn in [get_gemini_provider, get_openrouter_provider, get_github_pro
         PROVIDERS.append(provider)
 
 if not PROVIDERS:
-    raise RuntimeError("❌ No LLM providers available. Set GEMINI_API_KEY, OPENROUTER_API_KEY, or GITHUB_TOKEN.")
+    raise RuntimeError("No LLM providers available. Set GEMINI_API_KEY, OPENROUTER_API_KEY, or GITHUB_TOKEN.")
 
-print(f"\n🚀 Available providers: {[p.name for p in PROVIDERS]}\n")
+logger.info("Available providers: %s", [p.name for p in PROVIDERS])
 
 # Use first available provider as default
 active_provider = PROVIDERS[0]
@@ -194,10 +201,15 @@ vector_store = build_or_load_vectorstore()
 retriever = vector_store.as_retriever(search_kwargs={"k": 5})
 
 chat_history_store: Dict[str, BaseChatMessageHistory] = {}
+MAX_SESSIONS = 500
 
 
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
     if session_id not in chat_history_store:
+        if len(chat_history_store) >= MAX_SESSIONS:
+            oldest = next(iter(chat_history_store))
+            del chat_history_store[oldest]
+            logger.info("Session cap reached; evicted oldest session")
         chat_history_store[session_id] = InMemoryChatMessageHistory()
     return chat_history_store[session_id]
 
@@ -246,26 +258,33 @@ def build_qa_chain_for_provider(provider: ProviderConfig) -> RunnableWithMessage
         output_messages_key="answer",
     )
 
+_qa_chain_cache: Dict[str, RunnableWithMessageHistory] = {}
+
+def get_or_build_qa_chain(provider: ProviderConfig) -> RunnableWithMessageHistory:
+    """Return a cached QA chain for the provider, building it on first access."""
+    if provider.name not in _qa_chain_cache:
+        _qa_chain_cache[provider.name] = build_qa_chain_for_provider(provider)
+    return _qa_chain_cache[provider.name]
+
 async def chat_with_fallback(query: str, session_id: str) -> Dict[str, Any]:
     """Try chat with each provider until one succeeds."""
     errors = []
     for provider in PROVIDERS:
         try:
-            print(f"🔄 Trying {provider.name} for chat...")
-            qa_chain = build_qa_chain_for_provider(provider)
+            logger.info("Trying %s for chat", provider.name)
+            qa_chain = get_or_build_qa_chain(provider)
             result = await qa_chain.ainvoke(
                 {"input": query},
                 config={"configurable": {"session_id": session_id}},
             )
-            print(f"✅ {provider.name} succeeded")
+            logger.info("%s succeeded", provider.name)
             return result
         except Exception as e:
             error_msg = str(e)
-            print(f"❌ {provider.name} failed: {error_msg[:100]}")
+            logger.warning("%s failed: %s", provider.name, error_msg[:200])
             errors.append(f"{provider.name}: {error_msg[:100]}")
             continue
-    
-    # All providers failed
+
     raise RuntimeError(f"All providers failed. Errors: {' | '.join(errors)}")
 
 # ======================== TRIAGE ===========================
@@ -294,7 +313,7 @@ def detect_emergency(text: str) -> Optional[str]:
 
 # ======================== API SCHEMAS ======================
 class ChatRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=2000)
     session_id: Optional[str] = "default"
 
 class ChatResponse(BaseModel):
@@ -506,7 +525,7 @@ async def generate_rx_with_fallback(user_query: str, assistant_answer: str, age:
     errors = []
     for provider in PROVIDERS:
         try:
-            print(f"🔄 Trying {provider.name} for prescription...")
+            logger.info("Trying %s for prescription", provider.name)
             rx_chain = build_rx_chain_for_provider(provider)
             result = await rx_chain.ainvoke({
                 "user_query": user_query,
@@ -514,15 +533,14 @@ async def generate_rx_with_fallback(user_query: str, assistant_answer: str, age:
                 "age": age,
                 "gender": gender,
             })
-            print(f"✅ {provider.name} succeeded")
+            logger.info("%s succeeded for prescription", provider.name)
             return result
         except Exception as e:
             error_msg = str(e)
-            print(f"❌ {provider.name} failed: {error_msg[:100]}")
+            logger.warning("%s failed for prescription: %s", provider.name, error_msg[:200])
             errors.append(f"{provider.name}: {error_msg[:100]}")
             continue
-    
-    # All providers failed
+
     raise RuntimeError(f"All providers failed. Errors: {' | '.join(errors)}")
 
 class RxFromChatRequest(BaseModel):
@@ -594,7 +612,11 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return JSONResponse({"status": "ok"})
+    return JSONResponse({
+        "status": "ok",
+        "providers": [p.name for p in PROVIDERS],
+        "active_sessions": len(chat_history_store),
+    })
 
 if __name__ == "__main__":
     import uvicorn
