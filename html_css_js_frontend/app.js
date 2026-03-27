@@ -6,6 +6,7 @@ const SESSION_KEY = 'medassist-session-id';
 let sessionId = localStorage.getItem(SESSION_KEY) || generateSessionId();
 let messageCount = 0;
 let isProcessing = false;
+let hoverHintTimer;
 
 // ===== DOM Elements =====
 const elements = {
@@ -82,6 +83,35 @@ function showToast(message, type = 'info') {
     toast.style.animation = 'toastSlideIn 0.3s ease reverse';
     setTimeout(() => toast.remove(), 300);
   }, 4000);
+}
+
+function showHoverHint(message) {
+  const hoverHint = document.getElementById('hoverHint');
+  if (!hoverHint || !message) return;
+
+  hoverHint.textContent = message;
+  hoverHint.classList.add('show');
+
+  clearTimeout(hoverHintTimer);
+  hoverHintTimer = setTimeout(() => {
+    hoverHint.classList.remove('show');
+  }, 1800);
+}
+
+function initializeHoverGuides() {
+  document.querySelectorAll('.ui-hoverable').forEach((node) => {
+    node.addEventListener('mouseenter', () => {
+      node.classList.add('hover-active');
+      const hoverMessage = node.dataset.hoverMessage;
+      if (hoverMessage) {
+        showHoverHint(hoverMessage);
+      }
+    });
+
+    node.addEventListener('mouseleave', () => {
+      node.classList.remove('hover-active');
+    });
+  });
 }
 
 // ===== Chat Functions =====
@@ -397,6 +427,7 @@ elements.prescriptionModal.querySelector('.modal-overlay').addEventListener('cli
 document.addEventListener('DOMContentLoaded', () => {
   elements.chatInput.focus();
   updateStatus('Connected', true);
+  initializeHoverGuides();
 
   fetch(`${API_BASE}/`)
     .then(response => response.json())

@@ -36,7 +36,7 @@
           <span class="status-dot"></span>
           <span id="statusText">Connected</span>
         </div>
-        <button id="btnGeneratePDF" class="btn btn-outline">
+        <button id="btnGeneratePDF" class="btn btn-outline ui-hoverable" data-hover-message="Button to generate prescription details and open the PDF form.">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
@@ -56,7 +56,7 @@
       <div class="layout-grid">
         <!-- Left Panel - Info & Features -->
         <aside class="sidebar">
-          <div class="card welcome-card">
+          <div class="card welcome-card ui-hoverable" data-hover-message="Overview card with MedAssist features and smart medical capabilities.">
             <div class="card-header">
               <h2>Welcome to MedAssist AI</h2>
               <span class="badge badge-primary">RAG Powered</span>
@@ -98,7 +98,7 @@
             </div>
           </div>
 
-          <div class="card stats-card">
+          <div class="card stats-card ui-hoverable" data-hover-message="Quick dashboard for providers, documents, and total conversation messages.">
             <h3>Quick Stats</h3>
             <div class="stats-grid">
               <div class="stat-item">
@@ -116,7 +116,25 @@
             </div>
           </div>
 
-          <div class="card safety-card">
+          <div class="card template-card ui-hoverable" data-hover-message="Clinical quick templates to jump-start common consultations.">
+            <div class="card-header">
+              <h3>Clinical Templates</h3>
+              <span class="badge badge-primary">Classic Care</span>
+            </div>
+            <div class="template-list">
+              <button class="template-item chip ui-hoverable" data-hover-message="Template button to generate a structured SOAP clinical note." data-prompt="Create a classic SOAP note for this patient with diagnosis, plan, and red flags.">
+                SOAP Note Starter
+              </button>
+              <button class="template-item chip ui-hoverable" data-hover-message="Template button to draft a medication timing and precautions plan." data-prompt="Give me a medication schedule with dose timings and precautions.">
+                Medication Schedule
+              </button>
+              <button class="template-item chip ui-hoverable" data-hover-message="Template button to create a discharge summary with follow-up guidance." data-prompt="Prepare a patient discharge summary with warning signs and follow-up checklist.">
+                Discharge Summary
+              </button>
+            </div>
+          </div>
+
+          <div class="card safety-card ui-hoverable" data-hover-message="Important medical safety notice and emergency disclaimer.">
             <div class="safety-header">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
@@ -134,11 +152,11 @@
           <div class="card chat-card">
             <div class="chat-header">
               <div>
-                <h2>Medical Consultation</h2>
-                <p class="text-muted">Ask about symptoms, medications, or medical reports</p>
-              </div>
+                  <h2>Medical Consultation</h2>
+                  <p class="text-muted">Ask about symptoms, medications, or medical reports</p>
+                </div>
               <div class="chat-controls">
-                <button id="btnClearChat" class="btn btn-ghost btn-sm" title="Clear conversation">
+                <button id="btnClearChat" class="btn btn-ghost btn-sm ui-hoverable" data-hover-message="Button to clear the current consultation chat." title="Clear conversation">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -151,23 +169,23 @@
             <div id="suggestedPrompts" class="suggested-prompts">
               <p class="text-small text-muted">Try asking:</p>
               <div class="prompt-chips">
-                <button class="chip" data-prompt="I have a fever of 101°F and body aches for 2 days. What should I do?">
+                <button class="chip ui-hoverable" data-hover-message="Quick prompt for triage help with fever and body aches." data-prompt="I have a fever of 101°F and body aches for 2 days. What should I do?">
                   Fever & body aches
                 </button>
-                <button class="chip" data-prompt="How do I interpret my CBC blood test results?">
+                <button class="chip ui-hoverable" data-hover-message="Quick prompt for understanding CBC blood reports." data-prompt="How do I interpret my CBC blood test results?">
                   Understand CBC results
                 </button>
-                <button class="chip" data-prompt="What are the warning signs of a heart attack?">
+                <button class="chip ui-hoverable" data-hover-message="Quick prompt for emergency heart attack warning signs." data-prompt="What are the warning signs of a heart attack?">
                   Heart attack symptoms
                 </button>
-                <button class="chip" data-prompt="Home remedies for mild headache">
+                <button class="chip ui-hoverable" data-hover-message="Quick prompt for safe home care advice for headache." data-prompt="Home remedies for mild headache">
                   Headache remedies
                 </button>
               </div>
             </div>
 
             <!-- Chat Messages -->
-            <div id="chatContainer" class="chat-container">
+            <div id="chatContainer" class="chat-container ui-hoverable" data-hover-message="Consultation timeline with all assistant and patient messages.">
               <div id="chatMessages" class="chat-messages"></div>
             </div>
 
@@ -176,11 +194,12 @@
               <div class="chat-input-container">
                 <textarea 
                   id="chatInput" 
-                  class="chat-input" 
+                  class="chat-input ui-hoverable" 
+                  data-hover-message="Input field to describe symptoms and ask medical questions."
                   placeholder="Describe your symptoms or ask a medical question..."
                   rows="1"
                 ></textarea>
-                <button id="btnSend" class="btn btn-primary btn-icon">
+                <button id="btnSend" class="btn btn-primary btn-icon ui-hoverable" data-hover-message="Button to send your question to the medical assistant.">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="22" y1="2" x2="11" y2="13"/>
                     <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -205,7 +224,7 @@
           <h2>Generate Prescription PDF</h2>
           <p class="text-muted">Fill in patient details to create a professional prescription</p>
         </div>
-        <button id="btnCloseModal" class="btn btn-ghost btn-icon">
+        <button id="btnCloseModal" class="btn btn-ghost btn-icon ui-hoverable" data-hover-message="Button to close the prescription form dialog.">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -217,15 +236,15 @@
         <div class="form-grid">
           <div class="form-group">
             <label for="patientName">Patient Name</label>
-            <input type="text" id="patientName" class="form-control" placeholder="Enter patient name">
+            <input type="text" id="patientName" class="form-control ui-hoverable" data-hover-message="Patient full name field for the generated prescription PDF." placeholder="Enter patient name">
           </div>
           <div class="form-group">
             <label for="patientAge">Age</label>
-            <input type="number" id="patientAge" class="form-control" placeholder="Age" min="0">
+            <input type="number" id="patientAge" class="form-control ui-hoverable" data-hover-message="Patient age field used in the prescription report." placeholder="Age" min="0">
           </div>
           <div class="form-group">
             <label for="patientGender">Gender</label>
-            <select id="patientGender" class="form-control">
+            <select id="patientGender" class="form-control ui-hoverable" data-hover-message="Patient gender selection used in the prescription details.">
               <option value="">Not specified</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -234,18 +253,18 @@
           </div>
           <div class="form-group">
             <label for="doctorName">Doctor Name</label>
-            <input type="text" id="doctorName" class="form-control" value="Dr. On-call">
+            <input type="text" id="doctorName" class="form-control ui-hoverable" data-hover-message="Doctor name shown on the prescription PDF." value="Dr. On-call">
           </div>
           <div class="form-group">
             <label for="clinicName">Clinic Name</label>
-            <input type="text" id="clinicName" class="form-control" value="Virtual Health">
+            <input type="text" id="clinicName" class="form-control ui-hoverable" data-hover-message="Clinic or hospital name displayed on the prescription PDF." value="Virtual Health">
           </div>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button id="btnCancelPDF" class="btn btn-ghost">Cancel</button>
-        <button id="btnCreatePDF" class="btn btn-primary">
+        <button id="btnCancelPDF" class="btn btn-ghost ui-hoverable" data-hover-message="Button to cancel prescription PDF generation.">Cancel</button>
+        <button id="btnCreatePDF" class="btn btn-primary ui-hoverable" data-hover-message="Button to download prescription PDF from the current chat consultation.">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
@@ -258,6 +277,7 @@
 
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
+  <div id="hoverHint" class="hover-hint" aria-live="polite"></div>
 
   <script src="app.js"></script>
 </body>
