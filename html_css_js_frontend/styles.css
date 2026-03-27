@@ -1,31 +1,31 @@
 /* ===== CSS Variables ===== */
 :root {
-  --primary: #06b6d4;
-  --primary-dark: #0891b2;
-  --primary-light: #22d3ee;
-  --secondary: #3b82f6;
+  --primary: #0b8f8a;
+  --primary-dark: #0a6f6b;
+  --primary-light: #28b7b0;
+  --secondary: #1f6aa5;
   --success: #10b981;
   --warning: #f59e0b;
-  --danger: #ef4444;
+  --danger: #c0392b;
   --info: #6366f1;
   
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --surface: #1e293b;
-  --surface-elevated: #2d3b52;
+  --bg-primary: #e8f0ef;
+  --bg-secondary: #d9e9e7;
+  --bg-tertiary: #c4d8d4;
+  --surface: #f8fcfc;
+  --surface-elevated: #edf5f4;
   
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+  --text-primary: #1f2b2b;
+  --text-secondary: #355252;
+  --text-muted: #5e7474;
   
-  --border: #334155;
-  --border-light: #475569;
+  --border: #bfd1cf;
+  --border-light: #9cb7b4;
   
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px 0 rgba(23, 42, 42, 0.08);
+  --shadow-md: 0 6px 12px -4px rgba(23, 42, 42, 0.14);
+  --shadow-lg: 0 12px 24px -6px rgba(23, 42, 42, 0.2);
+  --shadow-xl: 0 20px 30px -8px rgba(23, 42, 42, 0.26);
   
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -49,7 +49,7 @@ html {
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(145deg, #f5fbfa 0%, #e5efee 45%, #dce9e7 100%);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
@@ -111,7 +111,7 @@ kbd {
 
 /* ===== Navbar ===== */
 .navbar {
-  background: rgba(30, 41, 59, 0.8);
+  background: rgba(248, 252, 252, 0.9);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -140,7 +140,7 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-elevated);
+  background: linear-gradient(135deg, #ffffff, #d7ebe8);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
 }
@@ -228,8 +228,22 @@ kbd {
 }
 
 .welcome-card {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(59, 130, 246, 0.1));
-  border-color: rgba(6, 182, 212, 0.3);
+  background: linear-gradient(135deg, rgba(11, 143, 138, 0.14), rgba(31, 106, 165, 0.12));
+  border-color: rgba(11, 143, 138, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-card::after {
+  content: '';
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.45), transparent 65%);
+  top: -120px;
+  right: -120px;
+  pointer-events: none;
 }
 
 .features-list {
@@ -243,7 +257,7 @@ kbd {
   display: flex;
   gap: 1rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.66);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
 }
@@ -293,8 +307,8 @@ kbd {
 }
 
 .safety-card {
-  background: rgba(239, 68, 68, 0.05);
-  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(192, 57, 43, 0.08);
+  border-color: rgba(192, 57, 43, 0.26);
 }
 
 .safety-header {
@@ -323,6 +337,25 @@ kbd {
   flex-direction: column;
   height: calc(100vh - 180px);
   max-height: 900px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(transparent 96%, rgba(11, 143, 138, 0.05) 97%),
+    linear-gradient(90deg, transparent 96%, rgba(11, 143, 138, 0.05) 97%);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.chat-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .chat-header {
@@ -361,19 +394,39 @@ kbd {
 
 .chip {
   padding: 0.5rem 1rem;
-  background: rgba(6, 182, 212, 0.1);
-  border: 1px solid rgba(6, 182, 212, 0.3);
-  border-radius: var(--radius-lg);
-  color: var(--primary-light);
+  background: rgba(11, 143, 138, 0.12);
+  border: 1px solid rgba(11, 143, 138, 0.32);
+  border-radius: 999px;
+  color: var(--primary-dark);
   font-size: 0.875rem;
   cursor: pointer;
   transition: var(--transition);
 }
 
 .chip:hover {
-  background: rgba(6, 182, 212, 0.2);
+  background: rgba(11, 143, 138, 0.2);
   border-color: var(--primary);
   transform: translateY(-2px);
+}
+
+.template-card {
+  animation: cardFloat 5s ease-in-out infinite;
+}
+
+.template-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.template-item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+@keyframes cardFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 /* ===== Chat Messages ===== */
@@ -382,7 +435,7 @@ kbd {
   overflow-y: auto;
   margin-bottom: 1rem;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
 }
@@ -449,12 +502,12 @@ kbd {
 }
 
 .message.assistant .message-bubble {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(59, 130, 246, 0.15));
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  background: linear-gradient(135deg, rgba(11, 143, 138, 0.12), rgba(31, 106, 165, 0.13));
+  border: 1px solid rgba(11, 143, 138, 0.25);
 }
 
 .message.user .message-bubble {
-  background: var(--surface-elevated);
+  background: #fff;
   border: 1px solid var(--border);
 }
 
@@ -483,7 +536,7 @@ kbd {
 .references-content {
   margin-top: 0.75rem;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(246, 251, 251, 0.86);
   border-radius: var(--radius-md);
   border: 1px dashed var(--border);
   font-size: 0.875rem;
@@ -494,7 +547,7 @@ kbd {
 .reference-item {
   padding: 0.5rem;
   margin-bottom: 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(11, 143, 138, 0.08);
   border-radius: var(--radius-sm);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
@@ -611,13 +664,13 @@ kbd {
 }
 
 .btn-outline {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.7);
   border-color: var(--border);
   color: var(--text-primary);
 }
 
 .btn-outline:hover:not(:disabled) {
-  background: var(--surface-elevated);
+  background: #ffffff;
   border-color: var(--primary);
 }
 
@@ -627,7 +680,7 @@ kbd {
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(11, 143, 138, 0.08);
   color: var(--text-primary);
 }
 
@@ -657,9 +710,9 @@ kbd {
 }
 
 .badge-primary {
-  background: rgba(6, 182, 212, 0.2);
-  color: var(--primary-light);
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  background: rgba(11, 143, 138, 0.16);
+  color: var(--primary-dark);
+  border: 1px solid rgba(11, 143, 138, 0.3);
 }
 
 /* ===== Modal ===== */
@@ -679,7 +732,7 @@ kbd {
 .modal-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(23, 42, 42, 0.35);
   backdrop-filter: blur(4px);
 }
 
@@ -798,6 +851,39 @@ kbd {
   align-items: center;
   gap: 0.75rem;
   animation: toastSlideIn 0.3s ease;
+}
+
+.ui-hoverable {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.ui-hoverable.hover-active {
+  transform: translateY(-2px) scale(1.01);
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(11, 143, 138, 0.18), var(--shadow-md);
+}
+
+.hover-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(19, 50, 50, 0.95);
+  color: #eaf8f6;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(234, 248, 246, 0.25);
+  font-size: 0.85rem;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2200;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  box-shadow: var(--shadow-lg);
+}
+
+.hover-hint.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 @keyframes toastSlideIn {
