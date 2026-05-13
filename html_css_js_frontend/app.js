@@ -1,6 +1,7 @@
 // ===== Configuration =====
 const API_BASE = document.querySelector('meta[name="api-base-url"]')?.content || 'http://localhost:8000';
 const SESSION_KEY = 'medassist-session-id';
+const CHAT_HISTORY_KEY = 'medassist-chat-history';
 
 // ===== State Management =====
 let sessionId = localStorage.getItem(SESSION_KEY) || generateSessionId();
@@ -22,7 +23,8 @@ const elements = {
   statusText: document.getElementById('statusText'),
   messageCountEl: document.getElementById('messageCount'),
   suggestedPrompts: document.getElementById('suggestedPrompts'),
-  chatContainer: document.getElementById('chatContainer')
+  chatContainer: document.getElementById('chatContainer'),
+  charCounter: document.getElementById('charCounter')
 };
 
 // ===== Utility Functions =====
@@ -51,6 +53,42 @@ function updateMessageCount() {
   if (elements.messageCountEl) {
     elements.messageCountEl.textContent = messageCount;
   }
+}
+
+
+function updateCharCounter() {
+  if (!elements.chatInput || !elements.charCounter) return;
+  const len = elements.chatInput.value.length;
+  elements.charCounter.textContent = `${len}/${MAX_QUERY_LENGTH}`;
+  elements.charCounter.classList.toggle('over-limit', len > MAX_QUERY_LENGTH);
+}
+
+function saveChatHistory() {
+  if (!elements.chatMessages) return;
+  localStorage.setItem(CHAT_HISTORY_KEY, elements.chatMessages.innerHTML);
+}
+
+function restoreChatHistory() {
+  const saved = localStorage.getItem(CHAT_HISTORY_KEY);
+  if (!saved || !elements.chatMessages) return;
+
+  elements.chatMessages.innerHTML = saved;
+  messageCount = elements.chatMessages.querySelectorAll('.message').length;
+  if (elements.messageCountEl) {
+    elements.messageCountEl.textContent = messageCount.toString();
+  }
+
+  elements.chatMessages.querySelectorAll('.references-toggle').forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const content = toggle.parentElement?.querySelector('.references-content');
+      content?.classList.toggle('hidden');
+    });
+  });
+
+  if (messageCount > 0 && elements.suggestedPrompts) {
+    elements.suggestedPrompts.classList.add('hidden');
+  }
+  scrollToBottom();
 }
 
 function showToast(message, type = 'info') {
@@ -164,6 +202,7 @@ function appendMessage(role, content, sources = null, isTyping = false) {
   
   if (!isTyping) {
     updateMessageCount();
+    saveChatHistory();
   }
   
   return messageDiv;
@@ -302,6 +341,7 @@ function clearChat() {
     if (elements.suggestedPrompts) {
       elements.suggestedPrompts.classList.remove('hidden');
     }
+    localStorage.removeItem(CHAT_HISTORY_KEY);
     showToast('Chat cleared', 'success');
   }
 }
@@ -405,7 +445,10 @@ function handleKeyPress(e) {
 // ===== Event Listeners =====
 elements.btnSend.addEventListener('click', () => sendMessage(elements.chatInput.value));
 elements.chatInput.addEventListener('keydown', handleKeyPress);
-elements.chatInput.addEventListener('input', autoResizeTextarea);
+elements.chatInput.addEventListener('input', () => {
+  autoResizeTextarea();
+  updateCharCounter();
+});
 elements.btnClearChat.addEventListener('click', clearChat);
 elements.btnGeneratePDF.addEventListener('click', openPDFModal);
 elements.btnCloseModal.addEventListener('click', closePDFModal);
@@ -417,6 +460,7 @@ document.querySelectorAll('.chip').forEach(chip => {
     const prompt = chip.dataset.prompt;
     elements.chatInput.value = prompt;
     autoResizeTextarea();
+    updateCharCounter();
     elements.chatInput.focus();
   });
 });
@@ -427,6 +471,8 @@ elements.prescriptionModal.querySelector('.modal-overlay').addEventListener('cli
 document.addEventListener('DOMContentLoaded', () => {
   elements.chatInput.focus();
   updateStatus('Connected', true);
+  restoreChatHistory();
+  updateCharCounter();
   initializeHoverGuides();
 
   fetch(`${API_BASE}/`)

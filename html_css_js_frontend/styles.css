@@ -993,3 +993,14 @@ kbd {
 .mt-2 { margin-top: 1rem; }
 .mb-1 { margin-bottom: 0.5rem; }
 .mb-2 { margin-bottom: 1rem; }
+
+.char-counter {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.char-counter.over-limit {
+  color: var(--danger);
+  font-weight: 600;
+}
