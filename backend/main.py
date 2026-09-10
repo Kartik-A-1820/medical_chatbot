@@ -1,5 +1,6 @@
 import os
 import io
+import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +22,10 @@ logger = logging.getLogger(__name__)
 from langchain_chroma import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
+from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.callbacks import CallbackManagerForRetrieverRun, AsyncCallbackManagerForRetrieverRun
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
@@ -32,6 +36,8 @@ from langchain_core.chat_history import BaseChatMessageHistory, InMemoryChatMess
 from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain_core.runnables import RunnableWithMessageHistory
+
+import graph_rag
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -52,6 +58,30 @@ class ProviderConfig:
     name: str
     llm: Any
     embeddings: Embeddings
+
+def get_omniroute_provider() -> Optional[ProviderConfig]:
+    """Try to initialize the local Omniroute gateway provider."""
+    try:
+        base_url = os.getenv("OMNIROUTE_BASE_URL", "http://127.0.0.1:20128/v1")
+        model = os.getenv("OMNIROUTE_MODEL", "agy/Gemini 3.1 Flash Lite")
+        api_key = os.getenv("OMNIROUTE_API_KEY", "omniroute-local")
+        timeout = float(os.getenv("OMNIROUTE_TIMEOUT", "25"))
+        max_retries = int(os.getenv("OMNIROUTE_MAX_RETRIES", "0"))
+
+        llm = ChatOpenAI(
+            base_url=base_url,
+            api_key=api_key,
+            model=model,
+            temperature=0.1,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+        embeddings = local_embeddings
+        logger.info("Omniroute provider initialized (base_url: %s, model: %s)", base_url, model)
+        return ProviderConfig(name="Omniroute", llm=llm, embeddings=embeddings)
+    except Exception as e:
+        logger.warning("Omniroute initialization failed: %s", e)
+        return None
 
 def get_gemini_provider() -> Optional[ProviderConfig]:
     """Try to initialize Gemini provider."""
@@ -111,9 +141,12 @@ def get_github_provider() -> Optional[ProviderConfig]:
         logger.warning("GitHub initialization failed: %s", e)
         return None
 
-# Try providers in order: Gemini → OpenRouter → GitHub
+# Try providers in order: Omniroute (local) → Gemini → OpenRouter → GitHub
 PROVIDERS: List[ProviderConfig] = []
-for provider_fn in [get_gemini_provider, get_openrouter_provider, get_github_provider]:
+provider_fns = [get_gemini_provider, get_openrouter_provider, get_github_provider]
+if os.getenv("OMNIROUTE_ENABLED", "true").lower() != "false":
+    provider_fns.insert(0, get_omniroute_provider)
+for provider_fn in provider_fns:
     provider = provider_fn()
     if provider:
         PROVIDERS.append(provider)
@@ -197,8 +230,56 @@ def build_or_load_vectorstore() -> Chroma:
 
 vector_store = build_or_load_vectorstore()
 
+# ======================== GRAPH RAG =========================
+class GraphAwareRetriever(BaseRetriever):
+    """Vector retriever augmented with related facts pulled from the
+    in-memory knowledge graph built by graph_rag.py."""
+    base_retriever: Any
+    graph: Any = None
+
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> List[Document]:
+        docs = list(self.base_retriever.invoke(query))
+        if self.graph is not None:
+            extra = graph_rag.graph_context_document(self.graph, query)
+            if extra:
+                docs.append(extra)
+        return docs
+
+    async def _aget_relevant_documents(
+        self, query: str, *, run_manager: AsyncCallbackManagerForRetrieverRun
+    ) -> List[Document]:
+        docs = list(await self.base_retriever.ainvoke(query))
+        if self.graph is not None:
+            extra = graph_rag.graph_context_document(self.graph, query)
+            if extra:
+                docs.append(extra)
+        return docs
+
+def _run_async(coro):
+    """Run a coroutine to completion regardless of whether an event loop is
+    already running in this thread (e.g. under some ASGI server import contexts)."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(1) as executor:
+        return executor.submit(asyncio.run, coro).result()
+
+GRAPH_RAG_ENABLED = os.getenv("GRAPH_RAG_ENABLED", "true").lower() != "false"
+knowledge_graph = None
+if GRAPH_RAG_ENABLED:
+    try:
+        knowledge_graph = _run_async(graph_rag.build_or_load_graph_async(llm, knowledge_dir=KNOWLEDGE_DIR))
+    except Exception as exc:
+        logger.warning("GraphRAG: failed to build/load graph, continuing without it: %s", exc)
+        knowledge_graph = None
+
 # ======================== SAFETY PROMPT ====================
-retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+base_retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+retriever = GraphAwareRetriever(base_retriever=base_retriever, graph=knowledge_graph)
 
 chat_history_store: Dict[str, BaseChatMessageHistory] = {}
 MAX_SESSIONS = 500
@@ -616,6 +697,11 @@ async def health():
         "status": "ok",
         "providers": [p.name for p in PROVIDERS],
         "active_sessions": len(chat_history_store),
+        "graph_rag": {
+            "enabled": GRAPH_RAG_ENABLED,
+            "nodes": knowledge_graph.number_of_nodes() if knowledge_graph is not None else 0,
+            "edges": knowledge_graph.number_of_edges() if knowledge_graph is not None else 0,
+        },
     })
 
 if __name__ == "__main__":

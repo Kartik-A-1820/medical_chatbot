@@ -31,6 +31,39 @@ def print_warning(text):
 def print_info(text):
     print(f"{BLUE}ℹ {text}{RESET}")
 
+async def test_omniroute_provider():
+    """Test the local Omniroute gateway provider configuration."""
+    print_header("Testing Omniroute Provider")
+
+    base_url = os.getenv("OMNIROUTE_BASE_URL", "http://127.0.0.1:20128/v1")
+    model = os.getenv("OMNIROUTE_MODEL", "agy/Gemini 3.1 Flash Lite")
+    api_key = os.getenv("OMNIROUTE_API_KEY", "omniroute-local")
+
+    print_info(f"Base URL: {base_url}")
+    print_info(f"LLM Model: {model}")
+    print_info("Note: requires the local Omniroute server to be running (`omniroute serve`)")
+
+    try:
+        from langchain_openai import ChatOpenAI
+
+        print_info("Testing Omniroute LLM...")
+        llm = ChatOpenAI(
+            base_url=base_url,
+            api_key=api_key,
+            model=model,
+            temperature=0.1,
+            timeout=float(os.getenv("OMNIROUTE_TIMEOUT", "25")),
+            max_retries=0,
+        )
+        response = await llm.ainvoke("Say 'Hello' in one word")
+        print_success(f"LLM Response: {response.content}")
+
+        return True
+
+    except Exception as e:
+        print_error(f"Omniroute test failed: {str(e)[:200]}")
+        return False
+
 async def test_gemini_provider():
     """Test Gemini provider configuration."""
     print_header("Testing Gemini Provider")
@@ -153,6 +186,7 @@ async def main():
     print_info("This script tests your .env configuration for all providers\n")
     
     results = {
+        "Omniroute": await test_omniroute_provider(),
         "Gemini": await test_gemini_provider(),
         "OpenRouter": await test_openrouter_provider(),
         "GitHub": await test_github_provider()
@@ -174,11 +208,12 @@ async def main():
     if len(working_providers) == 0:
         print_error("❌ No providers are working! Please check your .env file.")
         print_info("\nRequired environment variables:")
+        print_info("  Omniroute: none required by default, but needs `omniroute serve` running locally")
         print_info("  Gemini: GEMINI_API_KEY or GOOGLE_API_KEY")
         print_info("  OpenRouter: OPENROUTER_API_KEY")
         print_info("  GitHub: GITHUB_TOKEN")
-    elif len(working_providers) < 3:
-        print_warning(f"⚠ Only {len(working_providers)}/3 providers working. Fallback is available but limited.")
+    elif len(working_providers) < 4:
+        print_warning(f"⚠ Only {len(working_providers)}/4 providers working. Fallback is available but limited.")
     else:
         print_success("✅ All providers working! Full fallback chain available.")
     

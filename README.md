@@ -68,6 +68,17 @@ Create a `.env` file in `backend/` (or otherwise ensure env vars are available):
 # Optional embedding model
 LOCAL_EMBED_MODEL=sentence-transformers/all-MiniLM-L6-v2
 
+# Omniroute (local LLM gateway, tried first)
+OMNIROUTE_ENABLED=true
+OMNIROUTE_BASE_URL=http://127.0.0.1:20128/v1
+OMNIROUTE_MODEL=agy/Gemini 3.1 Flash Lite
+OMNIROUTE_API_KEY=omniroute-local
+OMNIROUTE_TIMEOUT=25
+
+# GraphRAG (in-memory knowledge graph, built from the same PDFs)
+GRAPH_RAG_ENABLED=true
+GRAPH_MAX_CHUNKS_PER_RUN=40
+
 # Gemini
 GEMINI_API_KEY=your_key
 GEMINI_MODEL=gemini-2.5-flash
@@ -153,8 +164,26 @@ For OpenRouter free models, review:
 
 ---
 
+## GraphRAG
+
+Alongside vector search, the backend builds a lightweight in-memory knowledge graph
+(entities/relationships such as Disease/Symptom/Medicine, via LangChain's
+`LLMGraphTransformer`) from the same PDFs in `backend/knowledge/`. At query time, any
+entities mentioned in the question are matched against the graph and their related
+facts (1-hop by default) are appended to the vector-retrieved context before the
+answer is generated.
+
+- Persisted as `backend/graph_db/knowledge_graph.json`, tracked incrementally via
+  `backend/graph_processed_files.txt` (mirrors the vector store's tracker).
+- Bounded by `GRAPH_MAX_CHUNKS_PER_RUN` per startup so a slow/rate-limited LLM can't
+  stall the app — leftover files are picked up on the next restart.
+- Disable with `GRAPH_RAG_ENABLED=false`.
+
 ## Notes
 
 - If no provider is configured successfully, backend startup will fail.
 - Chroma data and processed tracker are persisted; add new PDFs to `backend/knowledge/` and restart to ingest.
+- Omniroute is tried first (see `OPENROUTER_SETUP.md`-style config above); if its local
+  server isn't running or a model is unavailable, the chat falls back to
+  Gemini → OpenRouter → GitHub automatically. Disable with `OMNIROUTE_ENABLED=false`.
 - This project provides educational guidance, not a replacement for professional medical care.

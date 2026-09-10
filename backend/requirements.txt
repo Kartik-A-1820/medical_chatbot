@@ -8,9 +8,11 @@ langchain-text-splitters>=1.0.0
 langchain-chroma>=0.1.0
 langchain-google-genai>=1.0.0
 langchain-openai>=0.1.0
+langchain-huggingface>=0.1.0
 sentence-transformers>=2.2.0
 pypdf
 python-dotenv
 chromadb
 reportlab
 langchain_experimental
+networkx
