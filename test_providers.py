@@ -75,7 +75,7 @@ async def test_gemini_provider():
         print_info("Set GEMINI_API_KEY or GOOGLE_API_KEY in .env file")
         return False
     
-    print_success(f"API Key found: {api_key[:10]}...{api_key[-4:]}")
+    print_success("API key configured (value hidden)")
     
     try:
         from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
@@ -105,7 +105,7 @@ async def test_openrouter_provider():
         print_info("Set OPENROUTER_API_KEY in .env file")
         return False
     
-    print_success(f"API Key found: {api_key[:10]}...{api_key[-4:]}")
+    print_success("API key configured (value hidden)")
     
     base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     model = os.getenv("OPENROUTER_MODEL", "qwen/qwen-2-7b-instruct:free")
@@ -148,7 +148,7 @@ async def test_github_provider():
         print_info("Set GITHUB_TOKEN in .env file")
         return False
     
-    print_success(f"Token found: {token[:10]}...{token[-4:]}")
+    print_success("Token configured (value hidden)")
     
     base_url = os.getenv("GITHUB_OPENAI_BASE_URL", "https://models.inference.ai.azure.com")
     model = os.getenv("GITHUB_MODEL", "gpt-4o-mini")
