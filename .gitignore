@@ -12,3 +12,10 @@ venv/
 
 # Ignore pycache directories
 __pycache__/
+
+# Runtime document stores and ingestion state
+chroma_db/
+graph_db/
+knowledge/
+processed_files.txt
+graph_processed_files.txt

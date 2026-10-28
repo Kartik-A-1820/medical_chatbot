@@ -1,189 +1,85 @@
-# Medical Chatbot
+# Medical document Q&A
 
-A Retrieval-Augmented Generation (RAG) medical assistant with:
-- a **FastAPI backend** for chat + prescription PDF generation,
-- a modern **HTML/CSS/JS frontend**,
-- an alternative **Streamlit frontend**,
-- and **multi-provider LLM fallback** support.
+An educational retrieval-augmented generation prototype with a FastAPI backend, local PDF embeddings, optional graph context, and HTML or Streamlit interfaces.
 
-The assistant answers using your local knowledge-base PDFs, adds safety guidance, and can generate a structured prescription-style PDF from a conversation.
+The engineering focus is document ingestion, source retrieval, conversational context, and provider fallback. There is no clinical validation, medical accuracy benchmark, or evidence that the keyword-based emergency checks reliably detect emergencies. Do not use this application for diagnosis, treatment decisions, or prescribing.
 
----
+## Implementation
 
-## Features
+- PDF loading and chunking, local sentence-transformer embeddings, and a persistent Chroma index.
+- Optional entity/relation extraction into a NetworkX graph with persisted JSON.
+- History-aware retrieval with source references.
+- An ordered fallback chain: OmniRoute, Gemini, OpenRouter, then GitHub Models, using configured providers.
+- A legacy prescription-style PDF export endpoint. It is unvalidated and is not part of the recommended document-Q&A demo.
 
-- **RAG over local PDFs** using Chroma vector store.
-- **Provider fallback chain** for reliability:
-  1. Gemini
-  2. OpenRouter
-  3. GitHub Models
-- **Local embeddings** via `sentence-transformers/all-MiniLM-L6-v2` by default.
-- **Emergency red-flag detection** appended to responses.
-- **Prescription PDF generation** from chat context.
-- **Source references** returned with answers.
+Local embeddings do not make the application fully local: retrieved passages, questions, and graph-extraction inputs can be sent to the configured model provider.
 
----
+## Local setup
 
-## Project Structure
-
-```text
-.
-├── backend/                    # FastAPI API + RAG + PDF generation
-├── html_css_js_frontend/       # Vanilla JS web UI (recommended)
-├── streamlit_frontend/         # Streamlit UI
-├── chroma_db/                  # Persisted vector store (runtime-generated)
-├── OPENROUTER_SETUP.md         # Notes for OpenRouter free-model privacy settings
-├── test_providers.py           # Provider/env validation script
-└── README.md
-```
-
-> Note: The backend expects a `knowledge/` folder (relative to where the backend process runs) containing your source PDFs.
-
----
-
-## Prerequisites
-
-- Python 3.10+
-- `pip`
-- At least one provider credential:
-  - `GEMINI_API_KEY` (or `GOOGLE_API_KEY`), or
-  - `OPENROUTER_API_KEY`, or
-  - `GITHUB_TOKEN`
-
----
-
-## Backend Setup (FastAPI)
+Use a separate Python environment. Python 3.10+ is the intended baseline; requirements are not locked, so record the resolved versions and report installation failures.
 
 ```bash
+git clone https://github.com/Kartik-A-1820/medical_chatbot.git
+cd medical_chatbot
+python -m venv .venv
+```
+
+Activate with `source .venv/bin/activate` on Linux/macOS or `.venv\Scripts\Activate.ps1` in Windows PowerShell:
+
+```bash
+python -m pip install -r backend/requirements.txt
 cd backend
-python -m venv venv
-source venv/bin/activate   # macOS/Linux
-# .\venv\Scripts\activate  # Windows
-pip install -r requirements.txt
 ```
 
-Create a `.env` file in `backend/` (or otherwise ensure env vars are available):
+Copy `.env.example` to `.env` in `backend/`. Configure one provider you can access. Set `OMNIROUTE_ENABLED=false` when using only a hosted provider, and leave unused credentials empty. The example disables graph extraction for a simpler first run.
 
-```env
-# Optional embedding model
-LOCAL_EMBED_MODEL=sentence-transformers/all-MiniLM-L6-v2
-
-# Omniroute (local LLM gateway, tried first)
-OMNIROUTE_ENABLED=true
-OMNIROUTE_BASE_URL=http://127.0.0.1:20128/v1
-OMNIROUTE_MODEL=agy/Gemini 3.1 Flash Lite
-OMNIROUTE_API_KEY=omniroute-local
-OMNIROUTE_TIMEOUT=25
-
-# GraphRAG (in-memory knowledge graph, built from the same PDFs)
-GRAPH_RAG_ENABLED=true
-GRAPH_MAX_CHUNKS_PER_RUN=40
-
-# Gemini
-GEMINI_API_KEY=your_key
-GEMINI_MODEL=gemini-2.5-flash
-
-# OpenRouter
-OPENROUTER_API_KEY=your_key
-OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-OPENROUTER_MODEL=qwen/qwen-2-7b-instruct:free
-
-# GitHub Models
-GITHUB_TOKEN=your_token
-GITHUB_OPENAI_BASE_URL=https://models.inference.ai.azure.com
-GITHUB_MODEL=gpt-4o-mini
-```
-
-Create and populate knowledge PDFs (from `backend/`):
+Create `backend/knowledge/` and add a small public, redistributable PDF with facts you can verify. Do not use patient records or private health information. From `backend/`:
 
 ```bash
-mkdir -p knowledge
-# place your .pdf files in backend/knowledge/
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-Run backend:
+The working directory matters: `knowledge/`, `chroma_db/`, and processed-file trackers are relative to it. The first launch downloads embedding weights, ingests PDFs, and initializes providers. Check `http://127.0.0.1:8000/health` and `/docs` after startup. Provider initialization or a health response alone does not establish that a live model request succeeds.
+
+## Browser interface
+
+In another activated terminal, from the repository root:
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m http.server 5500 --bind 127.0.0.1 --directory html_css_js_frontend
 ```
 
-Health check:
+Open `http://localhost:5500`. The default backend address is `http://localhost:8000`; the HTML meta setting controls the API address.
+
+For Streamlit instead:
 
 ```bash
-curl http://localhost:8000/health
+python -m pip install -r streamlit_frontend/requirements.txt
+python -m streamlit run streamlit_frontend/app.py
 ```
 
----
+Set `MEDCHAT_BACKEND_URL` in the launching environment if the backend address differs.
 
-## Frontend Options
+For a first check, ask a factual question answered by the supplied PDF and compare the answer and references with the source. Also ask a question the PDF cannot answer. Record unsupported statements and missing references rather than treating fluent text as successful retrieval.
 
-### 1) HTML/CSS/JS Frontend (Recommended)
+## Configuration and state
 
-```bash
-cd html_css_js_frontend
-python -m http.server 5500
-```
+[backend/.env.example](backend/.env.example) lists the supported provider settings. Model IDs are configuration choices; use one available to your account rather than assuming an old default remains available.
 
-Open: `http://localhost:5500`
+- New PDFs are ingested on restart. Filename trackers do not detect changed contents under the same name.
+- Graph extraction can add model calls during startup. Enable it only after the vector-only path works.
+- Runtime indexes and trackers should be regenerated from your chosen corpus, not shared as source artifacts.
+- Chat history is process-local. The Streamlit client currently uses the default backend session ID; it does not provide independent multi-user sessions.
+- The API has permissive CORS and no application authentication. Keep this demo local.
 
-The frontend calls backend at `http://localhost:8000` by default.
+## Validation and open work
 
-### 2) Streamlit Frontend
+`test_providers.py` is a live connectivity diagnostic, not an offline test suite. From the repository root, supply credentials through the environment or a root `.env` and run `python test_providers.py`. It can send requests to multiple configured providers and does not assess clinical or retrieval quality.
 
-```bash
-cd streamlit_frontend
-python -m venv venv
-source venv/bin/activate   # macOS/Linux
-# .\venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-streamlit run app.py
-```
+No reproducible labeled retrieval/answer benchmark is included. Priority work includes fixture-based ingestion tests, citation/abstention evaluation, content-hash tracking, session isolation, dependency locking, and removal or redesign of the prescription workflow.
 
-Open: `http://localhost:8501`
+## Contribute
 
----
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). Use synthetic or public redistributable documents in reproductions and clearly separate provider connectivity, retrieval quality, and application safety.
 
-## API Endpoints
-
-- `POST /chat` — asks a medical question and returns answer + references.
-- `POST /generate_prescription_pdf_from_chat` — generates downloadable PDF from chat context.
-- `GET /health` — service health status.
-
----
-
-## Provider Validation
-
-From repo root, you can validate configured providers:
-
-```bash
-python test_providers.py
-```
-
-For OpenRouter free models, review:
-- `OPENROUTER_SETUP.md`
-
----
-
-## GraphRAG
-
-Alongside vector search, the backend builds a lightweight in-memory knowledge graph
-(entities/relationships such as Disease/Symptom/Medicine, via LangChain's
-`LLMGraphTransformer`) from the same PDFs in `backend/knowledge/`. At query time, any
-entities mentioned in the question are matched against the graph and their related
-facts (1-hop by default) are appended to the vector-retrieved context before the
-answer is generated.
-
-- Persisted as `backend/graph_db/knowledge_graph.json`, tracked incrementally via
-  `backend/graph_processed_files.txt` (mirrors the vector store's tracker).
-- Bounded by `GRAPH_MAX_CHUNKS_PER_RUN` per startup so a slow/rate-limited LLM can't
-  stall the app — leftover files are picked up on the next restart.
-- Disable with `GRAPH_RAG_ENABLED=false`.
-
-## Notes
-
-- If no provider is configured successfully, backend startup will fail.
-- Chroma data and processed tracker are persisted; add new PDFs to `backend/knowledge/` and restart to ingest.
-- Omniroute is tried first (see `OPENROUTER_SETUP.md`-style config above); if its local
-  server isn't running or a model is unavailable, the chat falls back to
-  Gemini → OpenRouter → GitHub automatically. Disable with `OMNIROUTE_ENABLED=false`.
-- This project provides educational guidance, not a replacement for professional medical care.
+No standalone LICENSE file is included. Repository and source-document terms must be checked separately.
